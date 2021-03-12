@@ -2,8 +2,7 @@
 OS=''
 function CurrentSystem()
 {
-    echo "#####################################"
-    echo $'>>># Detecting the underlying OS'
+    echo ">>># Detecting the underlying OS"
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         if [ -f "/etc/debian_version" ]
         then
@@ -18,8 +17,8 @@ function CurrentSystem()
 
 function InstallDependencies
 {
-    echo "#####################################"
-    echo $'>>># Checking Python requirement'
+    echo ">>># Checking Python and git requirement"
+    # For Python
     PythonVersion="$(python3 -V 2>&1 | awk '{print $2}' | awk -F. '{print $1}')"  
     if [[ PythonVersion -eq 3 ]]
     then
@@ -28,7 +27,6 @@ function InstallDependencies
         echo "Installing python 3" 
         if [[ "$OS" == "DebianBased" ]]
         then
-            echo "deb"
             sudo apt-get update &> /dev/null 
             sudo apt-get install python3.6 &> /dev/null
             if [ $? -eq 0 ]
@@ -62,6 +60,49 @@ function InstallDependencies
             rehash
         fi
     fi  
+
+    # For git 
+    git --version &> /dev/null
+    if [ $? -eq 0 ]
+    then
+        echo "git is already installed"
+    else
+        echo "Installing git" 
+        if [[ "$OS" == "DebianBased" ]]
+        then
+            sudo apt-get update &> /dev/null 
+            sudo apt-get install git &> /dev/null
+            if [ $? -eq 0 ]
+            then 
+                echo "git has been installed successfully"
+            else
+                echo "An Error occured while installing git"                
+                exit 1
+            fi
+        elif [[ "$OS" == "RedHatBased" ]]
+        then 
+            sudo yum update &> /dev/null 
+            sudo yum install git &> /dev/null
+            if [ $? -eq 0 ]
+            then 
+                echo "git has been installed successfully"
+            else 
+                echo "An Error occured while installing git"                
+                exit 1
+            fi
+        elif [[ "$OS" == "MacOS"  ]]
+        then 
+            brew install git &> /dev/null
+            if [ $? -eq 0 ]
+            then 
+                echo "git has been installed successfully"
+            else 
+                echo "An Error occured while installing git"                
+                exit 1
+            fi
+            rehash
+        fi
+    fi  
 }
 
 function InstallingBinwalk
@@ -74,7 +115,6 @@ function InstallingBinwalk
         echo "Installing binwalk" 
         if [[ "$OS" == "DebianBased" ]]
         then
-            sudo apt-get install git > /dev/null
             sudo rm -rf /tmp/binwalk
             git clone https://github.com/devttys0/binwalk /tmp/binwalk  2> /dev/null
             cd /tmp/binwalk
@@ -89,7 +129,6 @@ function InstallingBinwalk
             fi 
         elif [[ "$OS" == "RedHatBased" ]]
         then 
-            sudo yum install git > /dev/null
             sudo rm -rf /tmp/binwalk
             git clone https://github.com/devttys0/binwalk /tmp/binwalk  2> /dev/null
             cd /tmp/binwalk
@@ -104,7 +143,6 @@ function InstallingBinwalk
             fi 
         elif [[ "$OS" == "MacOS"  ]]
         then 
-            brew install git > /dev/null
             sudo rm -rf /tmp/binwalk
             git clone https://github.com/devttys0/binwalk /tmp/binwalk  2> /dev/null
             cd /tmp/binwalk
@@ -121,6 +159,11 @@ function InstallingBinwalk
     fi
 }
 
+
+echo "#####################################"
 CurrentSystem
+echo "#####################################"
 InstallDependencies
+echo "#####################################"
 InstallingBinwalk 
+echo "#####################################"
