@@ -48,20 +48,28 @@ function CurrentPython
 
 function InstallingBinwalk
 {
-    echo "#####################################"
-    echo $'### Installing binwalk python 3 module'
-    sudo apt-get install git > /dev/null
-    sudo rm -rf /tmp/binwalk
-    git clone https://github.com/devttys0/binwalk /tmp/binwalk  2> /dev/null
-    cd /tmp/binwalk
-    sudo python3 /tmp/binwalk/setup.py install > /dev/null
-    python3 -c "import binwalk"
+    python3 -c "import binwalk" 2> /dev/null
     if [ $? -eq 0 ]
-    then
-        echo "The binwalk module has been successfully installed" 
-    else
-        echo "***Error: The binwalk  "
-    fi 
+    then 
+        echo "binwalk python 3 module is already installed"
+    else 
+
+        echo "#####################################"
+        echo $'### Installing binwalk python 3 module'
+        sudo apt-get install git > /dev/null
+        sudo rm -rf /tmp/binwalk
+        git clone https://github.com/devttys0/binwalk /tmp/binwalk  2> /dev/null
+        cd /tmp/binwalk
+        sudo python3 /tmp/binwalk/setup.py install > /dev/null
+        python3 -c "import binwalk" 2> /dev/null
+        if [ $? -eq 0 ]
+        then
+            echo "The binwalk module has been successfully installed" 
+        else
+            echo "***Error: The binwalk  wasn't installed"
+            exit 1
+        fi 
+    fi
 }
 
 CurrentSystem
