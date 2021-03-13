@@ -1,5 +1,6 @@
 #!/bin/bash 
 OS=''
+
 function CurrentSystem()
 {
     echo ">>># Detecting the underlying OS"
@@ -15,7 +16,7 @@ function CurrentSystem()
     fi
 }
 
-function InstallDependencies
+function InstallDependencies()
 {
     echo ">>># Checking Python and git requirement"
     # For Python
@@ -105,7 +106,7 @@ function InstallDependencies
     fi  
 }
 
-function InstallingBinwalk
+function InstallingBinwalk()
 {
     python3 -c "import binwalk" 2> /dev/null
     if [ $? -eq 0 ]
@@ -158,7 +159,6 @@ function InstallingBinwalk
         fi
     fi
 }
-
 
 echo "#####################################"
 CurrentSystem

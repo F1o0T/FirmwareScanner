@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-import Analyzer 
+import analyzers 
 import sys
 import argparse  
-         
+import colored_traceback.auto
+import colored_traceback.always
 ######################################################
 argParser = argparse.ArgumentParser(prog='Scanner', \
     description='Firmware Scanner Framework')                   
 argParser.add_argument('analyzer',                                                            
                         type=str,                                                               
                         #nargs='?',                                                              
-                        help='binwalk, ...')                                           
+                        help='basic, binwalk')                                           
 argParser.add_argument('firmware_path',                                                            
                         type=str,                                                               
                         #nargs='?',                                                              
                         help='path to the firmware')                                           
 args = argParser.parse_args()                                                                  
-analyzerType = args.analyzer
-firmwarePath  = args.firmware_path                                                                 
+analyzer_type = args.analyzer
+firmware_path  = args.firmware_path                                                                 
 #######################################################
 
 
 if __name__ == '__main__':
-    Analyzer.start(analyzerType, firmwarePath)
+    analyzers.gateway(analyzer_type, firmware_path)
