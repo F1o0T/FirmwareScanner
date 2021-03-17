@@ -17,9 +17,9 @@ bash install.sh
 ## Usage
 ### Basic Analysis
 ```bash
-python3 basic path_to_firmware_image
+python3 ./scanner basic   path_to_firmware_image
 ```
 ### More advanced Analysis
 ```bash
-python3 binwalk path_to_firmware_image
+python3 ./scanner binwalk path_to_firmware_image
 ```
