@@ -18,7 +18,7 @@ function CurrentSystem()
 
 function InstallDependencies()
 {
-    echo ">>># Checking Python and git requirement"
+    echo ">>># Checking python, git and sagemath requirement"
     # For Python
     PythonVersion="$(python3 -V 2>&1 | awk '{print $2}' | awk -F. '{print $1}')"  
     if [[ PythonVersion -eq 3 ]]
@@ -104,59 +104,66 @@ function InstallDependencies()
             rehash
         fi
     fi  
+
+    # SageMath for DebianBased
+    sage -v &> /dev/null
+    if [ $? -eq 0 ]
+    then
+        echo "sagemath is already installed"
+    else 
+        if [[ "$OS" == "DebianBased" ]]
+            then
+                sudo apt-get update &> /dev/null 
+                sudo apt-get install sagemath &> /dev/null
+                if [ $? -eq 0 ]
+                then 
+                    echo "sagemath has been installed successfully"
+                else
+                    echo "An Error occured while installing sagemath"                
+                fi
+        fi
+    fi
 }
 
-function InstallingBinwalk()
+function BinwalkInstall()
 {
     python3 -c "import binwalk" 2> /dev/null
     if [ $? -eq 0 ]
     then 
         echo "binwalk module is already installed"
     else 
-        echo "Installing binwalk" 
-        if [[ "$OS" == "DebianBased" ]]
+        sudo rm -rf /tmp/binwalk
+        git clone https://github.com/devttys0/binwalk /tmp/binwalk  2> /dev/null
+        cd /tmp/binwalk
+        sudo python3 /tmp/binwalk/setup.py install > /dev/null
+        python3 -c "import binwalk" 2> /dev/null
+        if [ $? -eq 0 ]
         then
-            sudo rm -rf /tmp/binwalk
-            git clone https://github.com/devttys0/binwalk /tmp/binwalk  2> /dev/null
-            cd /tmp/binwalk
-            sudo python3 /tmp/binwalk/setup.py install > /dev/null
-            python3 -c "import binwalk" 2> /dev/null
-            if [ $? -eq 0 ]
-            then
-                echo "The binwalk module has been successfully installed" 
-            else
-                echo "Error: The binwalk  wasn't installed"
-                exit 1
-            fi 
-        elif [[ "$OS" == "RedHatBased" ]]
-        then 
-            sudo rm -rf /tmp/binwalk
-            git clone https://github.com/devttys0/binwalk /tmp/binwalk  2> /dev/null
-            cd /tmp/binwalk
-            sudo python3 /tmp/binwalk/setup.py install > /dev/null
-            python3 -c "import binwalk" 2> /dev/null
-            if [ $? -eq 0 ]
-            then
-                echo "The binwalk module has been successfully installed" 
-            else
-                echo "Error: The binwalk  wasn't installed"
-                exit 1
-            fi 
-        elif [[ "$OS" == "MacOS"  ]]
-        then 
-            sudo rm -rf /tmp/binwalk
-            git clone https://github.com/devttys0/binwalk /tmp/binwalk  2> /dev/null
-            cd /tmp/binwalk
-            sudo python3 /tmp/binwalk/setup.py install > /dev/null
-            python3 -c "import binwalk" 2> /dev/null
-            if [ $? -eq 0 ]
-            then
-                echo "The binwalk module has been successfully installed" 
-            else
-                echo "Error: The binwalk  wasn't installed"
-                exit 1
-            fi 
-        fi
+            echo "The binwalk module has been successfully installed" 
+        else
+            echo "Error: The binwalk wasn't installed"
+            exit 1
+        fi 
+    fi
+}
+
+function RSACtfToolInstall()
+{   
+    ls RsaCtfTool/RsaCtfTool.py &> /dev/null 
+    if [ $? -eq 0 ]
+    then 
+        echo "RsaCtfTool.py script exists in ./RsaCtfTool/"
+    else 
+        echo "Installing RsaCtfTool" 
+        sudo rm -rf RsaCtfTool
+        git clone https://github.com/Ganapati/RsaCtfTool.git
+        if [ $? -eq 0 ]
+        then
+            echo "The RSACtfTool has been successfully installed" 
+        else
+            echo "Error: The RSACtfTool wasn't installed"
+            exit 1
+        fi 
     fi
 }
 
@@ -165,5 +172,7 @@ CurrentSystem
 echo "#####################################"
 InstallDependencies
 echo "#####################################"
-InstallingBinwalk 
+BinwalkInstall
+echo "#####################################"
+RSACtfToolInstall
 echo "#####################################"
