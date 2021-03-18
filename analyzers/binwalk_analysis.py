@@ -23,6 +23,7 @@ class BinWalk:
 
         self.extracted_EC_private_keys = None
 
+        self.extracted_general_private_keys = None
         self.extracted_general_public_keys = None
 
         self.extracted_certificates = None
@@ -31,6 +32,7 @@ class BinWalk:
             "RSAPrivate": [],
             "RSAPublic": [],
             "ECPrivate": [],
+            "GeneralPrivate": [],
             "GeneralPublic": [],
             "Certificates": [],
         }
@@ -179,6 +181,21 @@ class BinWalk:
         except subprocess.CalledProcessError:
             pass
 
+        # Finding general private KEYS
+        try:
+            self.extracted_general_private_keys = subprocess.check_output(
+                [
+                    "grep",
+                    "-rl",
+                    "-e",
+                    "-----BEGIN PRIVATE*",
+                    self.extraction_output_path,
+                ],
+                stderr=DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            pass
+
         # Finding general public KEYS
         try:
             self.extracted_general_public_keys = subprocess.check_output(
@@ -282,6 +299,33 @@ class BinWalk:
                     key_count += 1
                     print("\t>>> Found EC private key")
                     # print(key)
+
+        if self.extracted_RSA_private_keys is not None:
+            for key in self.extracted_RSA_private_keys.decode().split("\n"):
+                if not subprocess.call(
+                    [
+                        "openssl",
+                        "pkey",
+                        "-noout",
+                        "-text",
+                        "-inform",
+                        "PEM",
+                        "-pubin",
+                        "-in",
+                        key,
+                    ],
+                    stderr=DEVNULL,
+                    stdout=DEVNULL,
+                ):
+                    self.keys["GeneralPrivate"].append(key)
+                    key_file_name = os.path.basename(key)
+                    subprocess.call(
+                        ["cp", "-f", key, f"extracted_keys/{key_file_name}"]
+                    )
+                    key_count += 1
+                    print("\t>>> Found a general public key")
+                    # print(key)
+
 
         if self.extracted_general_public_keys is not None:
             for key in self.extracted_general_public_keys.decode().split("\n"):
