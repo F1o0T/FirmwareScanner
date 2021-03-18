@@ -11,13 +11,14 @@ class BasicAnalysis:
         self.firmware_path = firmware_path
 
     def file_type(self):
-        print(f"Firmware file-type is: {magic.from_file(self.firmware_path)}")
+        print("# FILE TYPE ANALYSIS")
+        print(f"\t>>> Firmware file-type is: {magic.from_file(self.firmware_path)}")
         with open(self.firmware_path, errors="ignore") as firm_file:
             for line in firm_file.readline():
                 if re.search("^@", line):
-                    print(">>> It could be MSP430 TI-TXT firmware")
+                    print("\t>>> It could be MSP430 TI-TXT firmware")
                 if re.search("^:", line):
-                    print(">>> It could be IntelHex firmware file")
+                    print("\t>>> It could be IntelHex firmware file")
 
     def stupid_string_extractor(self, min_length=50):
         with open(self.firmware_path, errors="ignore") as firm_file:
@@ -31,7 +32,8 @@ class BasicAnalysis:
                 result = ""
 
     def string_extractor(self, min_length=16, **kwargs):
-        print(f"The strings with minimum-length = {min_length} are: ")
+        print("# STRINGS EXTRACTION")
+        print(f"\t### STRINGS WITH MINIMUM_LEN = {min_length} ARE: ")
         string_command_output = check_output(
             ["strings", f"-n{min_length}", "-tx", f"{self.firmware_path}"],
             **kwargs,
@@ -39,4 +41,4 @@ class BasicAnalysis:
         ).decode()
         string_command_output = string_command_output.split("\n")
         for line in string_command_output:
-            print(line)
+            print(f"\t>>> {line}")

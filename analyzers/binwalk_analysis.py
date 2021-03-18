@@ -5,7 +5,13 @@ from subprocess import DEVNULL
 from shutil import move
 from datetime import date
 from time import strptime
+from Crypto.PublicKey import RSA
+import re 
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 
+# from OpenSSL import crypto
+# from OpenSSL.crypto import _lib, _ffi, X509
 
 class BinWalk:
     def __init__(self, firmware_path):
@@ -100,6 +106,31 @@ class BinWalk:
             ]
         )
         print(f"\t>>> Extracted @ {self.extraction_output_path}")
+
+    def basic_key_search(self):
+        print("# BASIC KEY/CERT SEARCH BASED ON EXTENTION")
+        # find extracted -print  | grep -iE "*\.key|.pem|.crt"
+        find_command_outout = subprocess.Popen(
+            [
+                "find",
+                self.extraction_output_path,
+                "-print",
+            ],
+            stdout=subprocess.PIPE
+        )
+        # i for case insensitve
+        # E for Extended grep with regex 
+        key_search_output = subprocess.check_output(
+            [
+                "grep",
+                "-iE", 
+                "*\.key|\.pem|\.crt",
+            ],
+            stdin=find_command_outout.stdout
+        ).decode().split("\n")
+
+        for key_path in key_search_output: 
+            print(f"\t>>> {key_path}")
 
     def find_artifacts(self):
         print("# SEARCHING FOR ARTIFACTS ....")
@@ -298,43 +329,35 @@ class BinWalk:
             f"\t>>> {key_count} extracted keys and certificate, check the ./extracted_keys/"
         )
 
-    # Testing the public keys using the RSACtfTool.
-    def test_certificates(self):
-        subprocess.call(["rm", "-rf", "keys_artifacts.txt"])
-        char = input("# TESTING THE EXTRACTED CERTIFICATES AND KEYS (Y/N): ")
-        if char != "Y":
-            exit()
-        # Certificates
-        print("\t>>> Check keys_artifacts.txt file for the output.")
-        print("\t>>> CERTIFICATES")
-        for certificate in self.keys["Certificates"]:
-            # Checking the Expiry date
-            cert_name = os.path.basename(certificate)
-            certificate_expiry = subprocess.check_output(
+    def check_validity_dates(self, certificate):
+        certificate_expiry = subprocess.check_output(
                 ["openssl", "x509", "-noout", "-enddate", "-in", certificate]
             ).decode()
-            certificate_expiry = certificate_expiry.split()
-            year = int(certificate_expiry[3])
-            month = certificate_expiry[0].split("=")[1]
-            month = int(strptime(month, "%b").tm_mon)
-            day = int(certificate_expiry[1])
 
-            todays_date = date.today()
-            expired = False
-            if int(todays_date.year) > year:
-                expired = True
-            elif int(todays_date.month) > month:
-                expired = True
-            elif int(todays_date.day) > day:
-                expired = True
+        certificate_expiry = certificate_expiry.split()
+        year = int(certificate_expiry[3])
+        month = certificate_expiry[0].split("=")[1]
+        month = int(strptime(month, "%b").tm_mon)
+        day = int(certificate_expiry[1])
 
-            if expired:
+        todays_date = date.today()
+        expired = False
+        if int(todays_date.year) > year:
+            expired = True
+        elif int(todays_date.month) > month:
+            expired = True
+        elif int(todays_date.day) > day:
+            expired = True
 
-                print(f"\t\t>>> {cert_name} is expired")
-            else:
-                print(f"\t\t>>> {cert_name} is NOT expired")
+        if expired:
+            print(f"\t\t>>> This certificate is expired")
 
-            # Checking the start date
+        else:
+            print(f"\t\t>>> This certificate is NOT expired")
+        
+            print(f"\t\t>>> The certificate is not valid before {cert.not_valid_before}")
+
+            # Checking the start date using the shell openssl command 
             certificate_start = subprocess.check_output(
                 ["openssl", "x509", "-noout", "-startdate", "-in", certificate]
             ).decode()
@@ -353,12 +376,55 @@ class BinWalk:
                 expired = False
 
             if not started:
-                print(f"\t\t>>> {cert_name} start date is not due")
-            else:
-                print(f"\t\t>>> {cert_name} has a valid start date")
+                print(f"\t\t>>> Start date is not due")
+
+    def check_weak_hash_algorithm(self, hash_algorithm):
+            if "md5" in hash_algorithm or "sha1" in hash_algorithm:
+                print("This certificate is using a weak hash algorithm")
+
+    # Testing the public keys using the x509 from cryptography module and the openssl shell command
+    def test_certificates(self): 
+        print("# CERTIFICATES INFORMATION")
+        subprocess.call(["rm", "-rf", "keys_artifacts.txt"])
+        for certificate in self.keys["Certificates"]:
+            cert_name = os.path.basename(certificate)
+            print(f"\t>>> {cert_name}")
+
+            with open(certificate) as cert_file:
+                cert_content = cert_file.read()
+            
+            cert = x509.load_pem_x509_certificate(str.encode(cert_content), default_backend())
+
+            print(f"\t\t>>> The used digital signature is {cert.signature_hash_algorithm.name}")
+
+            self.check_weak_hash_algorithm(cert.signature_hash_algorithm.name)
+            print(f"\t\t>>> The certificate is not valid after {cert.not_valid_after}")
+            self.check_validity_dates(certificate)
+
+
+            # Getting the Public key size
+            pubKey = cert.public_key()
+            print(f"\t\t>>> The lenght of the extracted key is {pubKey.key_size}")  
+
+            # Getting the Encryption algorithm
+            enc_algorithm = ''
+            certificate_text_output = subprocess.check_output(
+                [
+                    "openssl",
+                    "x509",
+                    "-noout",
+                    "-text",
+                    "-in",
+                    certificate,
+                ],
+            ).decode().split("\n")
+            for line in certificate_text_output:
+                if re.search("Public Key Algorithm", line): 
+                    enc_algorithm = line.strip().split(':')[1].strip()
+                    print(f"\t\t>>> The used encryption algorithm is {enc_algorithm}")
 
             # Extracting public keys
-            print(f"\t\t>>> Extracting publick keys from {cert_name}")
+            print(f"\t\t>>> Extracting the public key from {cert_name}")
             subprocess.call(
                 [
                     "openssl",
@@ -371,12 +437,21 @@ class BinWalk:
                     f"extracted_keys/{cert_name}.pub",
                 ],
             )
-            self.keys_from_certificates.append(f"extracted_keys/{cert_name}.pub")
+            # self.keys_from_certificates.append(f"extracted_keys/{cert_name}.pub")
+            if enc_algorithm == "rsaEncryption":
+                self.keys['RSAPublic'].append(f"extracted_keys/{cert_name}.pub")
 
     def test_keys(self):
-        print("\t>>> KEYS")
-        print("\t\t>>> Testing the standalone public keys")
+        print("# KEYS ANALYSIS USING RsaCtfTool")
         for key in self.keys["GeneralPublic"]:
+            # Checking the lenght
+            with open(key) as RSA_publik_key_file:
+                file_name = os.path.basename(key)
+                RSA_pub_key = RSA.import_key(RSA_publik_key_file.read())
+                print("====================================================")
+                print(f">>> The lenght of key {file_name} under testing is {RSA_pub_key.n.bit_length()}")
+                print("====================================================")
+
             subprocess.call(
                 [
                     "./RsaCtfTool/RsaCtfTool.py",
@@ -386,12 +461,18 @@ class BinWalk:
                     "--publickey",
                     key,
                 ],
-                stdout=DEVNULL,
-                stderr=DEVNULL,
+                # stdout=DEVNULL,
+                # stderr=DEVNULL,
             )
 
-        print("\t\t>>> Testing the RSA public keys")
         for key in self.keys["RSAPublic"]:
+            with open(key) as RSA_publik_key_file:
+                file_name = os.path.basename(key)
+                RSA_pub_key = RSA.import_key(RSA_publik_key_file.read())
+                print("====================================================")
+                print(f">>> The lenght of key {file_name} under testing is {RSA_pub_key.n.bit_length()}")
+                print("====================================================")
+
             subprocess.call(
                 [
                     "./RsaCtfTool/RsaCtfTool.py",
@@ -401,21 +482,21 @@ class BinWalk:
                     "--publickey",
                     key,
                 ],
-                stdout=DEVNULL,
-                stderr=DEVNULL,
+                # stdout=DEVNULL,
+                # stderr=DEVNULL,
             )
 
-        print("\t\t>>> Testing certificates public keys")
-        for key in self.keys_from_certificates:
-            subprocess.call(
-                [
-                    "./RsaCtfTool/RsaCtfTool.py",
-                    "--private",
-                    "--output",
-                    "keys_artifacts.txt",
-                    "--publickey",
-                    key,
-                ],
-                stdout=DEVNULL,
-                stderr=DEVNULL,
-            )
+        # print(">>> Testing certificates RSA public keys")
+        # for key in self.keys_from_certificates:
+        #     subprocess.call(
+        #         [
+        #             "./RsaCtfTool/RsaCtfTool.py",
+        #             "--private",
+        #             "--output",
+        #             "keys_artifacts.txt",
+        #             "--publickey",
+        #             key,
+        #         ],
+        #         # stdout=DEVNULL,
+        #         # stderr=DEVNULL,
+        #     )
